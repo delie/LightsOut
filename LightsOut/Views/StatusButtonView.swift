@@ -9,61 +9,70 @@ struct StatusButton: View {
     private var statusText: String {
         switch display.state {
         case .mirrored:
-            return "Mirrored"
+            return "Turn On"
         case .disconnected:
-            return "Disabled"
+            return "Turn On"
         case .active:
-            return "Active"
+            return "Turn Off"
         case .pending:
             return "Pending"
         }
     }
-    
-    private var statusColor: Color {
-        switch display.state {
-        case .mirrored:
-            return Color("AppRed-Bright")
-        case .disconnected:
-            return Color("AppRed")
-        case .active:
-            return Color("AppGreen")
-        case .pending:
-            return Color("AppBlue")
+
+    var body: some View {
+        Group {
+            if display.state == .active {
+                actionButton
+                    .buttonStyle(.bordered)
+            } else {
+                actionButton
+                    .buttonStyle(.borderedProminent)
+            }
+        }
+        .controlSize(.small)
+        .disabled(display.state == .pending)
+        .onAppear {
+            guard display.state == .pending else { return }
+            withAnimation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true)) {
+                isAnimating.toggle()
+            }
         }
     }
-    
-    var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 6)
-                .fill(statusColor)
-                .frame(width: 90, height: 32)
 
-            if display.state == .pending {
-                Text("Pending")
-                    .font(.system(size: 12, weight: .bold, design: .rounded))
-                    .foregroundColor(isAnimating ? .white : .gray)
-                    .onAppear {
-                        withAnimation(.easeInOut(duration: 0.5).repeatForever(autoreverses: true)) {
-                            isAnimating.toggle()
-                        }
-                    }
-            } else {
+    private var actionButton: some View {
+        Button(action: handlePress) {
+            HStack(spacing: 6) {
+                Image(systemName: statusIcon)
+                    .font(.caption)
+
                 Text(statusText)
-                .font(.system(size: 12, weight: .bold, design: .rounded))
-                .foregroundColor(.white)
+                    .font(.system(size: 12))
             }
         }
-        .onTapGesture {
-            if display.state == .pending { return }
+    }
 
-            // Check if the Shift key is pressed
-            let shiftPressed = NSEvent.modifierFlags.contains(.shift)
+    private var statusIcon: String {
+        switch display.state {
+        case .mirrored:
+            return "power"
+        case .disconnected:
+            return "power"
+        case .active:
+            return "display.slash"
+        case .pending:
+            return isAnimating ? "ellipsis.circle.fill" : "ellipsis.circle"
+        }
+    }
 
-            if shiftPressed {
-                handleShiftTap()
-            } else {
-                handleTap()
-            }
+    private func handlePress() {
+        if display.state == .pending { return }
+
+        let shiftPressed = NSEvent.modifierFlags.contains(.shift)
+
+        if shiftPressed {
+            handleShiftTap()
+        } else {
+            handleTap()
         }
     }
 
@@ -77,8 +86,6 @@ struct StatusButton: View {
         } catch let error {
             errorHandler.handle(error: error)
         }
-        
-
     }
 
     private func handleShiftTap() {

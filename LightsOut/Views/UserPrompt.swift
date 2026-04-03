@@ -12,63 +12,63 @@ struct CustomUserPrompt: View {
 
     var body: some View {
         ZStack {
-            // Dimmed background
-            Color.black.opacity(0.8)
+            Color.black.opacity(0.2)
                 .ignoresSafeArea()
 
-            // Alert container
-            VStack(spacing: 24) {
-                // Title
+            VStack(spacing: 18) {
                 Text(title)
-                    .font(.system(size: 18, weight: .bold, design: .rounded))
-                    .foregroundColor(.white)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
                     .multilineTextAlignment(.center)
 
-                // Message
                 Text(message)
-                    .font(.system(size: 14, weight: .regular, design: .rounded))
-                    .foregroundColor(.white.opacity(0.8))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
 
-                // Buttons
                 HStack(spacing: 12) {
-                    // Secondary button
-                    Text(secondaryButton.0)
-                        .font(.system(size: 16, weight: .medium))
-                        .padding(.vertical, 8) // Reduced vertical padding
-                        .padding(.horizontal, 16) // Added horizontal padding for consistent sizing
-                        .frame(maxWidth: .infinity)
-                        .background(Color.gray.opacity(0.2))
-                        .foregroundColor(.white)
-                        .cornerRadius(8)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.gray.opacity(0.4), lineWidth: 1)
-                        )
-                        .onTapGesture(perform: secondaryButton.1)
+                    Button(action: secondaryButton.1) {
+                        Text(secondaryButton.0)
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(PromptButtonStyle(isPrimary: false))
 
-                    // Primary button
-                    Text(primaryButton.0)
-                        .font(.system(size: 16, weight: .medium))
-                        .padding(.vertical, 8) // Reduced vertical padding
-                        .padding(.horizontal, 16) // Added horizontal padding for consistent sizing
-                        .frame(maxWidth: .infinity)
-                        .background(Color.blue)
-                        .foregroundColor(.white)
-                        .cornerRadius(8)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.blue.opacity(0.8), lineWidth: 1)
-                        )
-                        .onTapGesture(perform: primaryButton.1)
-                
+                    Button(action: primaryButton.1) {
+                        Text(primaryButton.0)
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(PromptButtonStyle(isPrimary: true))
                 }
             }
             .padding(20)
-            .background(Color("Background")) // Replace with a flat custom dark gray color
-            .cornerRadius(12)
-            .shadow(color: Color.black.opacity(0.2), radius: 10, x: 0, y: 5)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .shadow(color: Color.black.opacity(0.12), radius: 12, x: 0, y: 8)
             .padding(.horizontal, 40)
+        }
+    }
+}
+
+private struct PromptButtonStyle: ButtonStyle {
+    let isPrimary: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 13))
+            .foregroundStyle(isPrimary ? Color.white : Color.primary)
+            .padding(.vertical, 9)
+            .frame(maxWidth: .infinity)
+            .background(background(for: configuration))
+    }
+
+    @ViewBuilder
+    private func background(for configuration: Configuration) -> some View {
+        if isPrimary {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color.accentColor.opacity(configuration.isPressed ? 0.75 : 0.9))
+        } else {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color(nsColor: .controlBackgroundColor))
         }
     }
 }

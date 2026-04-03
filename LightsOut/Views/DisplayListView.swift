@@ -10,46 +10,70 @@ struct DisplayListView: View {
     @EnvironmentObject var viewModel: DisplaysViewModel
 
     var body: some View {
-        VStack(spacing: 6) {
+        Group {
             if viewModel.displays.isEmpty {
-                Text("No displays detected")
-                    .foregroundColor(.gray)
-                    .font(.system(size: 14, weight: .medium, design: .rounded))
-                    .frame(maxWidth: .infinity, alignment: .center)
-            } else {
-                ForEach(viewModel.displays) { display in
-                    DisplayControlView(display: display)
-                        .environmentObject(viewModel)
+                VStack(spacing: 8) {
+                    Image(systemName: "display.slash")
+                        .font(.title2)
+                        .foregroundStyle(.secondary)
+
+                    Text("No Displays")
+                        .font(.headline)
+
+                    Text("Connect a display to manage it here.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                 }
+                .frame(maxWidth: .infinity, minHeight: 120)
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(Array(viewModel.displays.enumerated()), id: \.element.id) { index, display in
+                        DisplayControlView(display: display)
+                            .environmentObject(viewModel)
+
+                        if index < viewModel.displays.count - 1 {
+                            Divider()
+                                .padding(.leading, 32)
+                        }
+                    }
+                }
+                .background(Color.black.opacity(0.0001))
             }
         }
-        .padding(.horizontal)
-        .padding(.vertical, 8)
     }
 }
 
 struct DisplayControlView: View {
     @ObservedObject var display: DisplayInfo
-    @State private var isPending: Bool = false
-    @State private var pendingAnimationOpacity: Double = 1.0
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 1) {
-            HStack {
+        HStack(alignment: .center, spacing: 12) {
+            Image(systemName: displayIcon)
+                .font(.body)
+                .foregroundStyle(.secondary)
+                .frame(width: 20, height: 20)
+
+            VStack(alignment: .leading, spacing: 1) {
                 DisplayDetails(display: display)
-                Spacer()
-                StatusButton(
-                    display: display
-                )
-                .withErrorHandling()
             }
+            Spacer(minLength: 12)
+            StatusButton(display: display)
+                .withErrorHandling()
         }
-        .padding(12)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color("TileBackground"))
-                .shadow(color: Color.black.opacity(0.15), radius: 6, x: 0, y: 3)
-        )
-        .padding(.vertical, 3)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+    }
+
+    private var displayIcon: String {
+        switch display.state {
+        case .mirrored:
+            return "square.on.square"
+        case .disconnected:
+            return "display.slash"
+        case .active:
+            return "display"
+        case .pending:
+            return "ellipsis.circle"
+        }
     }
 }

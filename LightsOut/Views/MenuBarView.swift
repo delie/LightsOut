@@ -16,6 +16,8 @@ struct MenuBarView: View {
     
     var body: some View {
         ZStack {
+            menuBackground
+
             if isLoading {
                 LoadingView(cachedHeight: $cachedHeight, cachedWidth: $cachedWidth, isSpinning: $isSpinning)
             } else {
@@ -24,16 +26,15 @@ struct MenuBarView: View {
                     .environmentObject(updateService)
                     .background(
                         GeometryReader { geometry in
-                            Color("Background")
+                            Color.clear
                                 .onAppear {
                                     cachedHeight = geometry.size.height
                                     cachedWidth = geometry.size.width
                                 }
                         }
                     )
-                    .cornerRadius(8)
             }
-            // Custom Alert Overlay
+
             if showStartupPrompt {
                 CustomUserPrompt(
                     title: "Enable Launch at Login",
@@ -49,8 +50,18 @@ struct MenuBarView: View {
                 )
             }
         }
-        
+        .frame(width: 372)
         .animation(.snappy, value: isLoading)
+    }
+
+    private var menuBackground: some View {
+        RoundedRectangle(cornerRadius: 14, style: .continuous)
+            .fill(.regularMaterial)
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
+            )
+            .padding(8)
     }
 }
 
@@ -61,22 +72,25 @@ struct ContentView: View {
     @State private var isShiftPressed = false
 
     var body: some View {
-        VStack(spacing: 16) {
-            // Header Section
+        VStack(spacing: 0) {
             MenuBarHeader(isLoading: $isLoading)
                 .environmentObject(updateService)
-                .frame(maxWidth: .infinity, alignment: .leading) // Ensure full width
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.bottom, 12)
 
-            // Display List Section
+            Divider()
+
             DisplayListView()
-                .frame(maxWidth: .infinity) // Make sure it fills the available space
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 4)
 
-            // Footer Section
+            Divider()
+
             FooterText(isShiftPressed: $isShiftPressed)
+                .padding(.top, 10)
         }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 6)
-
+        .padding(.horizontal, 14)
+        .padding(.vertical, 14)
     }
 }
 
@@ -86,46 +100,41 @@ struct FooterText: View {
     @Environment(\.openURL) private var openURL
 
     var body: some View {
-        HStack(spacing: 4) {
-            Text("Hold")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundColor(Color.gray)
+        HStack(spacing: 8) {
+            Image(systemName: "keyboard")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
 
-            Text("Shift")
-                .font(.system(size: 12, weight: .bold))
-                .foregroundColor(.primary)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
-                .background(
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(isShiftPressed ? Color("AppBlue") : Color.clear)
-                )
+            Text("Hold Shift for mirror-based disable.")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
 
-            Text("to use a mirror-based disable ")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundColor(Color.gray)
+            if isShiftPressed {
+                Text("Shift")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer(minLength: 0)
 
             Button(action: {
                 if let url = URL(string: "https://alonx2.github.io/LightsOut/docs/disable-methods.html") {
                     openURL(url)
                 }
             }) {
-                Image(systemName: "questionmark.circle")
-                    .font(.system(size: 12, weight: .medium))
+                Image(systemName: "questionmark.circle.fill")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.secondary)
             }
-            .buttonStyle(PlainButtonStyle())
+            .buttonStyle(.plain)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
         .onAppear {
-            // Add the event monitor each time the view appears
             eventMonitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { event in
                 isShiftPressed = event.modifierFlags.contains(.shift)
-                return event // Return the event to continue its propagation
+                return event
             }
         }
         .onDisappear {
-            // Remove the event monitor when the view disappears
             if let monitor = eventMonitor {
                 NSEvent.removeMonitor(monitor)
                 eventMonitor = nil

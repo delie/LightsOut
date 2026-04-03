@@ -9,23 +9,36 @@ struct DisplayDetails: View {
     @ObservedObject var display: DisplayInfo
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 3) {
             Text(display.name)
-                .font(.system(size: 14, weight: .semibold, design: .rounded))
-                .foregroundColor(.white)
+                .font(.body.weight(.medium))
+                .foregroundStyle(.primary)
 
-            if display.isPrimary {
-                Text("Primary Display")
-                    .font(.system(size: 10, weight: .medium, design: .rounded))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 2)
-                    .background(
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(Color("AppBlue"))
-                    )
+            HStack(spacing: 6) {
+                if display.isPrimary {
+                    Text("Primary")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Text(secondaryLabel)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
         }
     }
-}
 
+    private var secondaryLabel: String {
+        switch display.state {
+        case .mirrored:
+            return "Mirror-disabled"
+        case .disconnected:
+            return "Disconnected"
+        case .active:
+            return "Available"
+        case .pending:
+            return "Applying change"
+        }
+    }
+}

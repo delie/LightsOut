@@ -11,24 +11,21 @@ struct LoadingView: View {
     @Binding var isSpinning: Bool
 
     var body: some View {
-        VStack {
+        VStack(spacing: 12) {
             Spacer()
-            Image(systemName: "arrow.clockwise.circle")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 40, height: 40)
-                .rotationEffect(.degrees(isSpinning ? 360 : 0))
-                .animation(.linear(duration: 1).repeatForever(autoreverses: false), value: isSpinning)
-                .foregroundColor(.white)
+            ProgressView()
+                .controlSize(.regular)
                 .onAppear { isSpinning = true }
                 .onDisappear { isSpinning = false }
-            Text("Refreshing displays")
+            Text("Refreshing Displays")
                 .font(.headline)
-                .foregroundColor(.white)
+            Text("Updating the menu state")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
             Spacer()
         }
         .frame(width: cachedWidth, height: cachedHeight)
-        .background(Color.blue)
-        .cornerRadius(8)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .padding(8)
     }
 }
