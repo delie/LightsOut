@@ -19,8 +19,4 @@ class ContextMenuManager {
         statusItem?.menu = nil
     }
 
-    @objc private func openReleasesPage(_ sender: NSMenuItem) {
-        guard let url = sender.representedObject as? URL else { return }
-        NSWorkspace.shared.open(url)
-    }
 }
