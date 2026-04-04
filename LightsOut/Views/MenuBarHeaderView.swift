@@ -17,34 +17,34 @@ struct MenuBarHeader: View {
                 Text("LightsOut")
                     .font(.title3.weight(.semibold))
                     .foregroundStyle(.primary)
-
-                Text(headerSubtitle)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-
-                updateStatusView
             }
             Spacer()
 
             HStack(spacing: 8) {
                 Button {
                     isLoading = true
+                    viewModel.fetchDisplays()
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
                         isLoading = false
                     }
-                    viewModel.fetchDisplays()
                 } label: {
-                    Image(systemName: "arrow.clockwise")
+                    if isLoading {
+                        ProgressView()
+                            .controlSize(.small)
+                    } else {
+                        Image(systemName: "arrow.clockwise")
+                    }
                 }
                 .buttonStyle(.borderless)
                 .controlSize(.large)
+                .disabled(isLoading)
                 .help("Refresh displays")
 
                 Button {
                     viewModel.resetAllDisplays()
                     showResetPopup = true
                 } label: {
-                    Image(systemName: "arrow.uturn.backward")
+                    Image(systemName: "power")
                 }
                 .buttonStyle(.borderless)
                 .controlSize(.large)
@@ -59,7 +59,7 @@ struct MenuBarHeader: View {
                         HStack(spacing: 8) {
                             Image(systemName: "checkmark.circle.fill")
                                 .foregroundStyle(.secondary)
-                            Text("All displays restored to an active state")
+                            Text("Restore all displays")
                                 .font(.system(size: 12))
                                 .foregroundStyle(.primary)
                         }
@@ -78,44 +78,6 @@ struct MenuBarHeader: View {
                 }
             }
         )
-    }
-
-    @ViewBuilder
-    private var updateStatusView: some View {
-        switch updateService.status {
-        case .idle:
-            EmptyView()
-        case .checking:
-            Text("Checking for updates…")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        case let .upToDate(currentVersion):
-            Text("Version \(currentVersion)")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-        case let .updateAvailable(_, latestVersion, releaseURL):
-            Button("Update available: \(latestVersion)") {
-                openURL(releaseURL)
-            }
-            .buttonStyle(.plain)
-            .font(.caption)
-            .foregroundStyle(Color.accentColor)
-        case let .unavailable(message):
-            Text(message)
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-        }
-    }
-
-    private var headerSubtitle: String {
-        let count = viewModel.displays.count
-        if count == 0 {
-            return "No displays connected"
-        }
-        if count == 1 {
-            return "1 display available"
-        }
-        return "\(count) displays available"
     }
 }
 

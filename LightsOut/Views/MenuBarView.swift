@@ -5,31 +5,15 @@ struct MenuBarView: View {
     @EnvironmentObject var viewModel: DisplaysViewModel
     @EnvironmentObject var updateService: AppUpdateService
     @State private var isLoading: Bool = false
-    @State private var isSpinning: Bool = false
-    @State private var cachedHeight: CGFloat = 200
-    @State private var cachedWidth: CGFloat = 200
     @AppStorage("ShowStartupPrompt") private var showStartupPrompt: Bool = true
-    
+
     var body: some View {
         ZStack {
-            menuBackground
-
-            if isLoading {
-                LoadingView(cachedHeight: $cachedHeight, cachedWidth: $cachedWidth, isSpinning: $isSpinning)
-            } else {
-                ContentView(isLoading: $isLoading)
-                    .environmentObject(viewModel)
-                    .environmentObject(updateService)
-                    .background(
-                        GeometryReader { geometry in
-                            Color.clear
-                                .onAppear {
-                                    cachedHeight = geometry.size.height
-                                    cachedWidth = geometry.size.width
-                                }
-                        }
-                    )
-            }
+            ContentView(isLoading: $isLoading)
+                .environmentObject(viewModel)
+                .environmentObject(updateService)
+                .disabled(isLoading)
+                .opacity(isLoading ? 0.5 : 1.0)
 
             if showStartupPrompt {
                 CustomUserPrompt(
@@ -48,16 +32,6 @@ struct MenuBarView: View {
         }
         .frame(width: 372)
         .animation(.snappy, value: isLoading)
-    }
-
-    private var menuBackground: some View {
-        RoundedRectangle(cornerRadius: 14, style: .continuous)
-            .fill(.regularMaterial)
-            .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
-            )
-            .padding(8)
     }
 }
 

@@ -22,7 +22,6 @@ final class AppUpdateService: ObservableObject {
         guard let value = Bundle.main.object(forInfoDictionaryKey: "LSReleasesPageURL") as? String else {
             return nil
         }
-
         return URL(string: value)
     }
 
