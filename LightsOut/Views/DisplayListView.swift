@@ -20,13 +20,158 @@ struct DisplayListView: View {
                 }
                 .frame(maxWidth: .infinity, minHeight: 120)
             } else {
-                VStack(spacing: 2) {
-                    ForEach(viewModel.displays) { display in
-                        DisplayControlView(display: display)
+                VStack(spacing: 0) {
+                    Text("Displays")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 10)
+                        .padding(.top, 8)
+                        .padding(.bottom, 6)
+
+                    VStack(spacing: 2) {
+                        ForEach(viewModel.displays) { display in
+                            DisplayControlView(display: display)
+                        }
+                    }
+
+                    if hasActiveExternals || hasDisabledExternals {
+                        Divider()
+                            .padding(.vertical, 6)
+                    }
+
+                    if hasActiveExternals {
+                        DisableExternalsButton()
+                    }
+
+                    if hasDisabledExternals {
+                        RestoreExternalsButton()
                     }
                 }
             }
         }
+    }
+
+    private var hasActiveExternals: Bool {
+        viewModel.displays.contains { !$0.isPrimary && $0.state == .active }
+    }
+
+    private var hasDisabledExternals: Bool {
+        let externals = viewModel.displays.filter { !$0.isPrimary }
+        return !externals.isEmpty && externals.allSatisfy { $0.state.isOff() }
+    }
+}
+
+struct DisableExternalsButton: View {
+    @EnvironmentObject var viewModel: DisplaysViewModel
+    @EnvironmentObject var errorHandler: ErrorHandler
+    @State private var isHovered = false
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 12) {
+            Image(systemName: "display.2")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(.secondary)
+                .frame(width: 24, height: 24)
+
+            Text("Disable All External Displays")
+                .font(.body.weight(.medium))
+                .foregroundStyle(.primary)
+
+            Spacer(minLength: 12)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(isHovered ? Color.white.opacity(0.1) : Color.clear)
+        )
+        .contentShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        .onHover { hovering in
+            isHovered = hovering
+        }
+        .onTapGesture {
+            disableExternalDisplays()
+        }
+    }
+
+    private func disableExternalDisplays() {
+        let primaryIsActive = viewModel.displays.contains { $0.isPrimary && $0.state == .active }
+
+        guard primaryIsActive else {
+            errorHandler.handle(error: DisplayError(msg: "Cannot disable external displays — the primary display is not active."))
+            return
+        }
+
+        let externalActive = viewModel.displays.filter { !$0.isPrimary && $0.state == .active }
+
+        guard !externalActive.isEmpty else { return }
+
+        let shiftPressed = NSEvent.modifierFlags.contains(.shift)
+
+        for display in externalActive {
+            do {
+                if shiftPressed {
+                    try viewModel.disableDisplay(display: display)
+                } else {
+                    try viewModel.disconnectDisplay(display: display)
+                }
+            } catch {
+                errorHandler.handle(error: error)
+                viewModel.fetchDisplays()
+                return
+            }
+        }
+        viewModel.fetchDisplays()
+    }
+}
+
+struct RestoreExternalsButton: View {
+    @EnvironmentObject var viewModel: DisplaysViewModel
+    @EnvironmentObject var errorHandler: ErrorHandler
+    @State private var isHovered = false
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 12) {
+            Image(systemName: "display.2")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(.secondary)
+                .frame(width: 24, height: 24)
+
+            Text("Enable All External Displays")
+                .font(.body.weight(.medium))
+                .foregroundStyle(.primary)
+
+            Spacer(minLength: 12)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(isHovered ? Color.white.opacity(0.1) : Color.clear)
+        )
+        .contentShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        .onHover { hovering in
+            isHovered = hovering
+        }
+        .onTapGesture {
+            restoreExternalDisplays()
+        }
+    }
+
+    private func restoreExternalDisplays() {
+        let externalDisabled = viewModel.displays.filter { !$0.isPrimary && $0.state.isOff() }
+
+        for display in externalDisabled {
+            do {
+                try viewModel.turnOnDisplay(display: display)
+            } catch {
+                errorHandler.handle(error: error)
+                viewModel.fetchDisplays()
+                return
+            }
+        }
+        viewModel.fetchDisplays()
     }
 }
 
@@ -112,6 +257,7 @@ struct DisplayControlView: View {
         } catch {
             errorHandler.handle(error: error)
         }
+        viewModel.fetchDisplays()
     }
 
     private var statusLabel: String {

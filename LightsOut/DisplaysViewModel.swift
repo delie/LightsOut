@@ -1,3 +1,4 @@
+import Combine
 import CoreGraphics
 import SwiftUI
 
@@ -13,6 +14,7 @@ class DisplaysViewModel: ObservableObject {
     private var gammaService = GammaUpdateService()
     private var arrangementCache = DisplayArrangementCacheService()
     private let defaults: UserDefaults
+    private var displayCancellables: Set<AnyCancellable> = []
     
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -41,6 +43,8 @@ class DisplaysViewModel: ObservableObject {
         let activeDisplaySet = Set(activeDisplays.prefix(Int(activeDisplayCount)))
         let persistedDisconnectedDisplayIDs = loadDisconnectedDisplayIDs()
 
+        let existingByID = Dictionary(uniqueKeysWithValues: displays.map { ($0.id, $0) })
+
         newDisplays = Set(onlineDisplays.prefix(Int(onlineDisplayCount)).compactMap { displayID in
             var displayName = "Display \(displayID)"
             if let screen = NSScreen.screens.first(where: { $0.displayID == displayID }) {
@@ -48,6 +52,13 @@ class DisplaysViewModel: ObservableObject {
             }
 
             let state: DisplayState = activeDisplaySet.contains(displayID) ? .active : .disconnected
+
+            // Reuse existing object if possible to preserve @ObservedObject references
+            if let existing = existingByID[displayID] {
+                existing.state = state
+                existing.isPrimary = displayID == primaryDisplayID
+                return existing
+            }
 
             return DisplayInfo(
                 id: displayID,
@@ -58,16 +69,22 @@ class DisplaysViewModel: ObservableObject {
         })
 
         for displayID in persistedDisconnectedDisplayIDs where !newDisplays.contains(where: { $0.id == displayID }) {
-            newDisplays.insert(
-                DisplayInfo(
-                    id: displayID,
-                    name: "Display \(displayID)",
-                    state: .disconnected,
-                    isPrimary: false
+            if let existing = existingByID[displayID] {
+                existing.state = .disconnected
+                existing.isPrimary = false
+                newDisplays.insert(existing)
+            } else {
+                newDisplays.insert(
+                    DisplayInfo(
+                        id: displayID,
+                        name: "Display \(displayID)",
+                        state: .disconnected,
+                        isPrimary: false
+                    )
                 )
-            )
+            }
         }
-        
+
         // Ensuring the off/pending displays are not "deleted" - manually adding them to the new list.
         for display in displays {
             if display.state.isOff() || display.state == .pending {
@@ -88,6 +105,7 @@ class DisplaysViewModel: ObservableObject {
             return $0.id < $1.id
         }
         
+        subscribeToDisplayChanges()
         try? arrangementCache.cache()
     }
     
@@ -172,7 +190,23 @@ class DisplaysViewModel: ObservableObject {
             mirror.state = .active
         }
     }
-    
+
+    func notifyChange() {
+        displays = displays
+    }
+
+    private func subscribeToDisplayChanges() {
+        displayCancellables.removeAll()
+        for display in displays {
+            display.objectWillChange
+                .sink { [weak self] _ in
+                    DispatchQueue.main.async {
+                        self?.objectWillChange.send()
+                    }
+                }
+                .store(in: &displayCancellables)
+        }
+    }
 }
 
 // MARK: - TurnOn logic

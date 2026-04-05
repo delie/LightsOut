@@ -18,6 +18,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var eventMonitor: Any?
     let displaysViewModel = DisplaysViewModel()
     var contextMenuManager: ContextMenuManager!
+    var popoverDisplayID: CGDirectDisplayID?
     
     func applicationDidFinishLaunching(_ notification: Notification) {
         popover = NSPopover()
@@ -40,6 +41,32 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.popover.performClose(nil)
             }
         }
+
+        CGDisplayRegisterReconfigurationCallback({ _, flags, userInfo in
+            guard let userInfo else { return }
+            let appDelegate = Unmanaged<AppDelegate>.fromOpaque(userInfo).takeUnretainedValue()
+
+            if flags.contains(.beginConfigurationFlag) {
+                // Capture which display the popover is on before the change
+                DispatchQueue.main.async {
+                    guard appDelegate.popover.isShown,
+                          let popoverWindow = appDelegate.popover.contentViewController?.view.window,
+                          let screen = popoverWindow.screen else { return }
+                    appDelegate.popoverDisplayID = screen.displayID
+                }
+            } else {
+                // After the change, check if that display is still active
+                DispatchQueue.main.async {
+                    guard appDelegate.popover.isShown,
+                          let savedID = appDelegate.popoverDisplayID else { return }
+                    let stillActive = NSScreen.screens.contains { $0.displayID == savedID }
+                    if !stillActive {
+                        appDelegate.popover.performClose(nil)
+                    }
+                    appDelegate.popoverDisplayID = nil
+                }
+            }
+        }, Unmanaged.passUnretained(self).toOpaque())
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -61,6 +88,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             let contentView = MenuBarView()
                 .environmentObject(displaysViewModel)
+                .withErrorHandling()
 
             popover.contentViewController = NSHostingController(rootView: contentView)
 
