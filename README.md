@@ -6,7 +6,7 @@ Based on the original version by AlonX2, GitHub: [AlonX2/LightsOut](https://gith
 
 I've only tested in Tahoe v26. It may work in older versions of MacOS, but I've not personally verified this, so use at your own risk :)
 
-Features:
+## Features
 
 - Virtually "disconnect" monitors. Particularly handy if you've got multiple devices connected to the same monitor.
 - Optionally runs at login.
@@ -15,5 +15,6 @@ Features:
 - Tahoe-friendly glass theme
 - Protects against disabling all monitors
 
-Here's a screenshot:
-![Screenshot](docs/images/example.jpg?v=2)
+## Screenshot
+
+![Screenshot](docs/images/screenshot.jpg)
