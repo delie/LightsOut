@@ -15,7 +15,12 @@ class DisplaysViewModel: ObservableObject {
     private var arrangementCache = DisplayArrangementCacheService()
     private let defaults: UserDefaults
     private var displayCancellables: Set<AnyCancellable> = []
-    
+
+    /// Called before display configuration changes. Pass the set of display IDs being disabled (empty for enable operations).
+    var willChangeDisplays: ((_ disablingDisplayIDs: Set<CGDirectDisplayID>) -> Void)?
+    /// Called after display configuration changes complete.
+    var didChangeDisplays: (() -> Void)?
+
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         fetchDisplays()
@@ -115,27 +120,30 @@ class DisplaysViewModel: ObservableObject {
         }
 
         display.state = .pending
+        willChangeDisplays?([display.id])
+
         var cid: CGDisplayConfigRef?
         let beginStatus = CGBeginDisplayConfiguration(&cid)
-        
+
         guard beginStatus == .success, let config = cid else {
             throw DisplayError(msg: "Failed to begin configuring '\(display.name)'.")
         }
-        
+
         let status = CGSConfigureDisplayEnabled(config, display.id, false)
         guard status == 0 else {
             CGCancelDisplayConfiguration(config)
             throw DisplayError(msg: "Failed to disconnect '\(display.name)'.")
         }
-        
+
         let completeStatus = CGCompleteDisplayConfiguration(config, .forAppOnly)
         guard completeStatus == .success else {
             throw DisplayError(msg: "Failed to finish configuring '\(display.name)'.")
         }
-        
+
         display.state = .disconnected
         persistDisconnected(displayID: display.id)
         unRegisterMirrors(display: display)
+        didChangeDisplays?()
     }
 
     
@@ -145,8 +153,8 @@ class DisplaysViewModel: ObservableObject {
         }
 
         display.state = .pending
-        
-        
+        willChangeDisplays?([display.id])
+
         do {
             try mirrorDisplay(display)
             gammaService.setZeroGamma(for: display)
@@ -154,6 +162,7 @@ class DisplaysViewModel: ObservableObject {
             throw DisplayError(msg: "Failed to apply a mirror-based disable to '\(display.name)'.")
         }
         unRegisterMirrors(display: display)
+        didChangeDisplays?()
     }
     
     func turnOnDisplay(display: DisplayInfo) throws(DisplayError) {
@@ -213,6 +222,8 @@ class DisplaysViewModel: ObservableObject {
 
 extension DisplaysViewModel {
     fileprivate func reconnectDisplay(display: DisplayInfo) throws(DisplayError) {
+        willChangeDisplays?([])
+
         var cid: CGDisplayConfigRef?
         let beginStatus = CGBeginDisplayConfiguration(&cid)
         guard beginStatus == .success, let config = cid else {
@@ -220,7 +231,7 @@ extension DisplaysViewModel {
                 msg: "Failed to begin configuration for '\(display.name)'."
             )
         }
-        
+
         let status = CGSConfigureDisplayEnabled(config, display.id, true)
         guard status == 0 else {
             CGCancelDisplayConfiguration(config)
@@ -228,21 +239,24 @@ extension DisplaysViewModel {
                 msg: "Failed to reconnect '\(display.name)'."
             )
         }
-        
+
         let completeStatus = CGCompleteDisplayConfiguration(config, .forAppOnly)
         guard completeStatus == .success else {
             throw DisplayError(
                 msg: "Failed to complete configuration for '\(display.name)'.")
         }
-        
+
         display.state = .active
         removePersistedDisconnected(displayID: display.id)
+        didChangeDisplays?()
         fetchDisplays()
     }
-    
+
     fileprivate func enableDisplay(display: DisplayInfo) throws(DisplayError) {
+        willChangeDisplays?([])
+
         gammaService.restoreGamma(for: display)
-        
+
         do {
             try unmirrorDisplay(display)
             try arrangementCache.restore()
@@ -251,8 +265,9 @@ extension DisplaysViewModel {
                 msg: "Failed to enable '\(display.name)'."
             )
         }
-        
+
         display.state = .active
+        didChangeDisplays?()
     }
 }
 

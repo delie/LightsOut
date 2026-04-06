@@ -19,6 +19,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     let displaysViewModel = DisplaysViewModel()
     var contextMenuManager: ContextMenuManager!
     var popoverDisplayID: CGDirectDisplayID?
+    var savedPopoverOffset: NSPoint?  // position relative to the popover's screen origin
     
     func applicationDidFinishLaunching(_ notification: Notification) {
         popover = NSPopover()
@@ -42,31 +43,60 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        CGDisplayRegisterReconfigurationCallback({ _, flags, userInfo in
-            guard let userInfo else { return }
-            let appDelegate = Unmanaged<AppDelegate>.fromOpaque(userInfo).takeUnretainedValue()
-
-            if flags.contains(.beginConfigurationFlag) {
-                // Capture which display the popover is on before the change
-                DispatchQueue.main.async {
-                    guard appDelegate.popover.isShown,
-                          let popoverWindow = appDelegate.popover.contentViewController?.view.window,
-                          let screen = popoverWindow.screen else { return }
-                    appDelegate.popoverDisplayID = screen.displayID
-                }
+        displaysViewModel.willChangeDisplays = { [weak self] disablingDisplayIDs in
+            guard let self,
+                  self.popover.isShown,
+                  let popoverWindow = self.popover.contentViewController?.view.window,
+                  let screen = popoverWindow.screen else { return }
+            let popoverDisplayID = screen.displayID
+            if !disablingDisplayIDs.isEmpty && disablingDisplayIDs.contains(popoverDisplayID) {
+                // The popover is on a display that's about to be disabled — close it
+                self.popover.performClose(nil)
+                self.popoverDisplayID = nil
+                self.savedPopoverOffset = nil
             } else {
-                // After the change, check if that display is still active
-                DispatchQueue.main.async {
-                    guard appDelegate.popover.isShown,
-                          let savedID = appDelegate.popoverDisplayID else { return }
-                    let stillActive = NSScreen.screens.contains { $0.displayID == savedID }
-                    if !stillActive {
-                        appDelegate.popover.performClose(nil)
-                    }
-                    appDelegate.popoverDisplayID = nil
-                }
+                // Save position relative to the screen origin (screen-local coordinates survive global coordinate shifts)
+                self.popoverDisplayID = popoverDisplayID
+                let screenOrigin = screen.frame.origin
+                self.savedPopoverOffset = NSPoint(
+                    x: popoverWindow.frame.origin.x - screenOrigin.x,
+                    y: popoverWindow.frame.origin.y - screenOrigin.y
+                )
             }
-        }, Unmanaged.passUnretained(self).toOpaque())
+        }
+
+        displaysViewModel.didChangeDisplays = { [weak self] in
+            guard let self,
+                  self.popover.isShown,
+                  self.savedPopoverOffset != nil,
+                  self.popoverDisplayID != nil else {
+                self?.popoverDisplayID = nil
+                self?.savedPopoverOffset = nil
+                return
+            }
+            // Defer restoration so it runs after macOS finishes its own window relocation
+            DispatchQueue.main.async { [weak self] in
+                guard let self,
+                      self.popover.isShown,
+                      let savedOffset = self.savedPopoverOffset,
+                      let savedDisplayID = self.popoverDisplayID,
+                      let popoverWindow = self.popover.contentViewController?.view.window,
+                      let screen = NSScreen.screens.first(where: { $0.displayID == savedDisplayID }) else {
+                    self?.popoverDisplayID = nil
+                    self?.savedPopoverOffset = nil
+                    return
+                }
+                // Restore position using the screen's (potentially new) origin + saved offset
+                var frame = popoverWindow.frame
+                frame.origin = NSPoint(
+                    x: screen.frame.origin.x + savedOffset.x,
+                    y: screen.frame.origin.y + savedOffset.y
+                )
+                popoverWindow.setFrame(frame, display: false)
+                self.popoverDisplayID = nil
+                self.savedPopoverOffset = nil
+            }
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
